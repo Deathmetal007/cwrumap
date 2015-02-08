@@ -1,11 +1,16 @@
 package cwru.edu.cwrumap;
 
-import android.support.v4.app.FragmentActivity;
+import android.app.ActionBar;
 import android.os.Bundle;
+import android.support.v4.app.FragmentActivity;
+import android.view.Menu;
+import android.view.MenuItem;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptor;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -43,6 +48,38 @@ public class CWRUMapActivity extends FragmentActivity {
         setUpMapIfNeeded();
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is
+        // present.
+        getMenuInflater().inflate(R.menu.menu, menu);
+//        return super.onCreateOptionsMenu(menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+
+            case R.id.menu_sethybrid:
+                mMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
+                break;
+
+            case R.id.menu_showtraffic:
+                mMap.setTrafficEnabled(true);
+                break;
+
+            case R.id.menu_zoomin:
+                mMap.animateCamera(CameraUpdateFactory.zoomIn());
+                break;
+
+            case R.id.menu_zoomout:
+                mMap.animateCamera(CameraUpdateFactory.zoomOut());
+                break;
+        }
+        return true;
+    }
+
     /**
      * Sets up the map if it is possible to do so (i.e., the Google Play services APK is correctly
      * installed) and the map has not already been instantiated.. This will ensure that we only ever
@@ -78,15 +115,30 @@ public class CWRUMapActivity extends FragmentActivity {
      */
     private void setUpMap() {
         //mMap.addMarker(new MarkerOptions().position(new LatLng(41.50364,  -81.60784)).title("Rocke").snippet("RockeFeller Building"));
-        CameraPosition cp = new CameraPosition(new LatLng(41.50364,  -81.60784), 20, 0, 0);
+        CameraPosition cp = new CameraPosition(new LatLng(41.50364,  -81.60784), 18, 0, 0);
         mMap.moveCamera(CameraUpdateFactory.newCameraPosition(cp));
     }
 
     /**
      * Adds a marker to the map
      */
-    private void addMarker(String title, String snippet, double lat, double lon){
+    private void addMarker(String title, String snippet, double lat, double lon, String categ){
 
+
+        BitmapDescriptor bd;
+        switch (categ) {
+            case "building": bd = BitmapDescriptorFactory.fromResource(R.drawable.schoolpng);
+                break;
+            //"Map symbol parking 02" by seamus mcgill (mcgill) - Own work.
+            // Licensed under Public Domain via Wikimedia Commons -
+            // http://commons.wikimedia.org/wiki/File:Map_symbol_parking_02.png#mediaviewer/
+            // File:Map_symbol_parking_02.png
+            case "lot": bd = BitmapDescriptorFactory.fromResource(R.drawable.parking);
+                break;
+            case "entrance": bd = BitmapDescriptorFactory.fromResource(R.drawable.exitrance);
+                break;
+            default: bd = null;
+        }
         /** Make sure that the map has been initialised **/
         if(null != mMap){
             mMap.addMarker(new MarkerOptions()
@@ -94,6 +146,8 @@ public class CWRUMapActivity extends FragmentActivity {
                             .title(title)
                             .snippet(snippet)
                             .draggable(false)
+                                    // choose icon based on category
+                            .icon(bd)
             );
         }
     }
@@ -110,7 +164,7 @@ public class CWRUMapActivity extends FragmentActivity {
             try {
                 entries = readFeed(xpp);
                 for (Entry e:entries) {
-                    addMarker(e.title, e.snippet, e.lat, e.lon);
+                    addMarker(e.title, e.snippet, e.lat, e.lon, e.categ);
                 }
             }
             catch (XmlPullParserException e){
@@ -124,12 +178,14 @@ public class CWRUMapActivity extends FragmentActivity {
         public final String snippet;
         public final double lat;
         public final double lon;
+        public final String categ;
 
-        private Entry(String title, String snippet, double lat, double lon) {
+        private Entry(String title, String snippet, double lat, double lon, String categ) {
             this.title = title;
             this.snippet = snippet;
             this.lat = lat;
             this.lon = lon;
+            this.categ = categ;
         }
     }
 
@@ -170,6 +226,7 @@ public class CWRUMapActivity extends FragmentActivity {
         String snippet = null;
         double lat = 0;
         double lon = 0;
+        String categ = null;
         while (parser.nextTag() != XmlPullParser.END_TAG) {
             if (parser.getEventType() != XmlPullParser.START_TAG) {
                 continue;
@@ -183,11 +240,13 @@ public class CWRUMapActivity extends FragmentActivity {
                 lat = readLat(parser);
             } else if (name.equals("lon")) {
                 lon = readLon(parser);
+            } else if (name.equals("categ")) {
+                categ = readCateg(parser);
             } else {
                 //skip(parser);
             }
         }
-        return new CWRUMapActivity.Entry(title, snippet, lat, lon);
+        return new CWRUMapActivity.Entry(title, snippet, lat, lon, categ);
     }
 
     // Processes title tags in the feed.
@@ -240,6 +299,13 @@ public class CWRUMapActivity extends FragmentActivity {
             parser.next();
         }
         return result;
+    }
+
+    private String readCateg(XmlPullParser parser) throws IOException, XmlPullParserException {
+        //parser.require(XmlPullParser.START_TAG, CWRUMapActivity.ns, "title");
+        String categ = readText(parser);
+        //parser.require(XmlPullParser.END_TAG, CWRUMapActivity.ns, "title");
+        return categ;
     }
 
    /*
